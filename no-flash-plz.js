@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         no-flash-plz
 // @namespace    https://github.com/brfish
-// @version      0.2
+// @version      0.3
 // @description  使用 HTML5 播放器替换学在西电课程回放平台原本的 Flash 播放器
 // @author       brfish
 // @match        http://newes.learning.xidian.edu.cn/threepart/index.html*
@@ -47,6 +47,7 @@ function main() {
             preload: "auto",
             userActions: {
                 hotkeys: function(event) {
+                    // SPACE
                     if (event.which == 32) {
                         if (this.paused()) {
                             this.play();
@@ -54,16 +55,38 @@ function main() {
                             this.pause();
                         }
                     }
+
+                    // LEFT
                     if (event.which == 37) {
-                        let time = this.currentTime() - 15;
+                        let time = this.currentTime() - 5;
                         if (time < 0) {
                             time = 0;
                         }
                         this.currentTime(time);
                     }
+
+                    // RIGHT
                     if (event.which == 39) {
-                        let time = this.currentTime() + 15;
+                        let time = this.currentTime() + 5;
                         this.currentTime(time);
+                    }
+
+                    // UP
+                    if (event.which == 38) {
+                        let volume = this.volume();
+                        volume += 0.1;
+                        if (volume > 1.0)
+                            volume = 1.0;
+                        this.volume(volume);
+                    }
+
+                    // DOWN
+                    if (event.which == 40) {
+                        let volume = this.volume();
+                        volume -= 0.1;
+                        if (volume > 1.0)
+                            volume = 0.0;
+                        this.volume(volume);
                     }
                 }
             }
@@ -82,8 +105,13 @@ function main() {
     videoSource.type = "application/x-mpegURL";
     videoPlayer.appendChild(videoSource);
 
-    let oldVideoPlayer = document.getElementsByClassName("install-flash");
-    oldVideoPlayer[0].replaceChild(videoPlayer, oldVideoPlayer[0].children[0]);
+    let oldVideoPlayer = document.getElementsByClassName("main clearfix")[0];
+    oldVideoPlayer.parentElement.replaceChild(videoPlayer, oldVideoPlayer);
+
+    let installFlash = document.getElementsByClassName("install-flash");
+    if (installFlash.length != 0) {
+        installFlash[0].parentElement.removeChild(installFlash[0]);
+    }
 }
 
 (function() {
