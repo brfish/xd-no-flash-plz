@@ -11,7 +11,7 @@ xd-no-flash-plz !
 
 你需要一个油猴插件 [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) 来运行这个脚本，你可以在 Chrome 网上应用店或者其他什么地方找到它，安装成功后并导入这个脚本
 
-你也可以直接通过 [GreasyFork](https://greasyfork.org/zh-CN/scripts/425163-no-flash-plz) 快速地安装它
+你也可以直接通过 [GreasyFork](https://greasyfork.org/zh-CN/scripts/425163-xd-no-flash-plz) 快速地安装它
 
 ## 2. Features
 
