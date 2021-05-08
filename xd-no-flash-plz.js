@@ -5,6 +5,7 @@
 // @description  使用 HTML5 播放器替换学在西电课程回放平台原本的 Flash 播放器
 // @author       brfish
 // @match        http://newes.learning.xidian.edu.cn/threepart/index.html*
+// @match        http://newes.chaoxing.com/threepart/index.html*
 
 // ==/UserScript==
 
