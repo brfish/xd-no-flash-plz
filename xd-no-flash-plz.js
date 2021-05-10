@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         xd-no-flash-plz
 // @namespace    https://github.com/brfish
-// @version      0.4.2 
+// @version      0.4.2
 // @description  使用 HTML5 播放器替换学在西电课程回放平台原本的 Flash 播放器
 // @author       brfish
 // @match        http://newes.learning.xidian.edu.cn/threepart/index*
@@ -87,10 +87,10 @@ function addContextMenuItems(menu, items) {
 
 function main() {
   let jsExtern = {
-    videojs: requireJS("https://unpkg.com/video.js/dist/video.js"),
-    videojsHS: requireJS("https://unpkg.com/@videojs/http-streaming/dist/videojs-http-streaming.js"),
+    videojs: requireJS("https://cdn.bootcdn.net/ajax/libs/video.js/7.12.1/video.js"),
+    videojsHS: requireJS("https://ghproxy.com/https://github.com/videojs/http-streaming/releases/download/v2.8.0/videojs-http-streaming.js"),
   };
-  let videojsCSS = requireCSS("stylesheet", "https://unpkg.com/video.js/dist/video-js.css");
+  let videojsCSS = requireCSS("stylesheet", "https://cdn.bootcdn.net/ajax/libs/video.js/7.12.1/video-js.css");
 
   let playbackSource = getPlaybackSource();
 
