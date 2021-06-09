@@ -30,13 +30,16 @@ let _COMMON = {
 
   createCSS: (styleText) => {
     let styleElement = document.createElement("style");
-    styleElement.type = "text/css";
     styleElement.innerText = styleText;
     document.head.appendChild(styleElement);
   },
 
   clamp: (value, minValue, maxValue) => {
     return Math.min(Math.max(value, minValue), maxValue);
+  },
+
+  equalEpsilon: (a, b, epsilon) => {
+    return Math.abs(a - b) <= epsilon;
   },
 
   getURLSearchParam: (search, key) => {
@@ -52,6 +55,40 @@ let _COMMON = {
   getURLParam: (url, key) => {
     let tmpURL = new URL(url);
     return _COMMON.getURLSearchParam(tmpURL.search, key);
+  },
+
+  setCookie: (key, value, expireDays) => {
+    let date = new Date();
+    date.setTime(date.getTime() + (expireDays * 24 * 60 * 60 * 1000));
+    document.cookie = key + "=" + value + "; " + "expires=" + date.toUTCString();
+  },
+
+  getCookie: (key) => {
+    let pairs = document.cookie.split(";");
+    let k = key + "=";
+    for (let i = 0; i < pairs.length; ++i) {
+      let trimmed = pairs[i].trim();
+      if (trimmed.indexOf(k) == 0) {
+        return trimmed.substring(k.length, trimmed.length);
+      }
+    }
+    return "";
+  },
+
+  isCookieExisted: (key) => {
+    return _COMMON.getCookie(key).length != 0;
+  },
+   
+  arrayInsert: (array, index, item) => {
+    array.splice(index, 0, item);
+  },
+
+  debug: false,
+
+  debugLog: (...params) => {
+    if (_COMMON.debug) {
+      console.log(...params);
+    }
   }
 };
 
@@ -219,7 +256,6 @@ class ContextMenu {
   $("#viewFrame").attr("mozallowfullscreen",    true);
   $("#viewFrame").attr("oallowfullscreen",      true);
   $("#viewFrame").attr("msallowfullscreen",     true);
-
 })();
 /* =============== OUTER PART =============== */
 
@@ -229,6 +265,7 @@ class ContextMenu {
 (function() {
   if (!(/newes\.learning\.xidian\.edu\.cn/.test(location.hostname)))
     return;
+  console.log("d", document.domain);
 
   let _videojs    = _COMMON.loadScript("https://cdn.bootcdn.net/ajax/libs/video.js/7.12.1/video.js");
   let _videojsHS  = _COMMON.loadScript("https://ghproxy.com/https://github.com/videojs/http-streaming/releases/download/v2.8.0/videojs-http-streaming.js");
@@ -254,6 +291,28 @@ class ContextMenu {
   document.title = isPlayback ? "课程回放" : "课程直播";
 
   let playerUtils = {
+    invalidSegments: [],
+
+    addInvalidSegment: (segment) => {
+      playerUtils.invalidSegments.push(segment);
+    },
+
+    nextValidTime: (currentTime) => {
+      let invalidSegments = playerUtils.invalidSegments;
+
+      let index = invalidSegments.findIndex((s) => {
+        if (!s.end) {
+          return false;
+        }
+        return currentTime >= s.start - 0.5 && currentTime <= s.end + 0.5;
+      });
+
+      if (index != -1) {
+        return invalidSegments[index].end + 1.5;
+      }
+      return -1;
+    },
+
     changeVolume: (deltaVolume) => {
       let newVolume = _COMMON.clamp(player.volume() + deltaVolume, 0.0, 1.0);
       player.volume(newVolume);
@@ -283,11 +342,14 @@ class ContextMenu {
   }
 
   _videojs.onload = () => {
+    let playbackRates = videoSources.isPlayback ? [0.5, 1, 1.25, 1.5, 2] : null;
+
     player = videojs("h5-video-player", {
       autoplay: false,
       controls: true,
       loop: false,
-      playbackRates: videoSources.isPlayback ? [0.5, 1, 1.5, 2] : null,
+      muted: false,
+      playbackRates: playbackRates,
       preload: "auto",
       userActions: {
         hotkeys: (event) => {
@@ -327,6 +389,23 @@ class ContextMenu {
           }
           event.preventDefault();
         }
+      },
+      controlBar: {
+        children: [
+          { name: "playToggle" },
+          { name: "currentTimeDisplay" },
+          { name: "progressControl" },
+          { name: "durationDisplay" },
+          {
+            name: "playbackRateMenuButton",
+            playbackRates: playbackRates
+          },
+          {
+            name: "volumePanel",
+            inline: false,
+          },
+          { name: 'FullscreenToggle' }
+        ]
       }
     });
 
@@ -359,7 +438,84 @@ class ContextMenu {
         if (delta < 0) {
           playerUtils.changeVolume(-0.1);
         }
-      })
+      });
+
+      let oldXhr = player.tech(false).vhs.xhr;
+      player.tech(false).vhs.xhr = function XhrFunction(options, callback) {
+        return oldXhr(options, (error, response) => {
+          if (error) {
+            let uri = response.uri;
+            let fileName = uri.substring(uri.lastIndexOf("/") + 1);
+            let fileIndex = fileName.substr(0, fileName.indexOf("_"));
+            let segments = player.tech(false).vhs.selectPlaylist().segments;
+
+            let index = segments.findIndex((s) => {
+              return s.uri == fileName;
+            });
+            _COMMON.debugLog(segments);
+            _COMMON.debugLog(playerUtils.invalidSegments);
+            
+            segments[index].nextSegment = segments[index + 1];
+            segments[index].isInvalid = true;
+            playerUtils.addInvalidSegment(segments[index]);
+            segments.splice(index, 1);
+            console.log(player.duration());
+          }
+          callback(error, response);
+        });
+      };
+
+      window.onbeforeunload = (e) => {
+        _COMMON.setCookie("playerMuted", player.muted(), 7);
+        _COMMON.setCookie("playerCurrentTime", player.currentTime(), 7);
+      } 
+
+      /**
+       * 参照 https://stackoverflow.com/questions/21399872/how-to-detect-whether-html5-video-has-paused-for-buffering
+       * waiting 和 timeupdate 事件有些情况不会触发，因此使用一个自定义的定时器来处理播放器遇到无效片段的停滞
+       * 
+       * 可能有性能问题，但片段不多，懒得改了
+       */
+
+      let checkInterval = 50.0;
+      let lastPlayPosition = 0;
+      let currentPlayPosition = 0;
+      setInterval(() => {
+        currentPlayPosition = player.currentTime();
+        let offset = (checkInterval - 20.0) / 1000.0;
+
+        for (let i = 0; i < playerUtils.invalidSegments.length; ++i) {
+          let s = playerUtils.invalidSegments[i];
+
+          if (s.disposed) {
+            continue;
+          }
+
+          if (!s.end) {
+            let tmp = s;
+            while (tmp.nextSegment.isInvalid) {
+              tmp = s.nextSegment;
+              tmp.disposed = true;
+              s.duration += tmp.duration;
+            }
+            s.nextSegment = tmp.nextSegment;
+            if (s.nextSegment.start) {
+              s.end = s.nextSegment.start;
+              s.start = s.end - s.duration;
+              _COMMON.debugLog("invalid time range: ", s.start, s.end);
+            }
+          }
+        }
+
+        if (!player.paused() && currentPlayPosition < (lastPlayPosition + offset)) {
+          let nextTime = playerUtils.nextValidTime(currentPlayPosition);
+          if (nextTime != -1) {
+            _COMMON.debugLog("jump to", nextTime);
+            player.currentTime(nextTime);
+          }
+        }
+        lastPlayPosition = currentPlayPosition;
+      }, checkInterval);
     });
   };
 
@@ -460,6 +616,11 @@ class ContextMenu {
       });
     }*/
   }
+
+  let playerStyleText = 
+    ".video-js .vjs-time-control{display:block;}\n" +
+    ".video-js .vjs-remaining-time{display: none;}\n"
+  _COMMON.createCSS(playerStyleText);
 
   let videoElement = document.createElement("video");
   videoElement.id = "h5-video-player";
