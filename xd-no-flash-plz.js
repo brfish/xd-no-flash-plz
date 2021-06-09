@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         xd-no-flash-plz
 // @namespace    https://github.com/brfish
-// @version      0.5.0
+// @version      0.6.0
 // @description  使用 HTML5 播放器替换学在西电课程回放平台原本的 Flash 播放器
 // @author       brfish
 // @match        http://newes.learning.xidian.edu.cn/threepart/index*
